@@ -30,7 +30,7 @@ Author = 'Powershellcrack'
 Copyright = '(c) 2023 Powershellcrack. All rights reserved.'
 
 # Description of the functionality provided by this module
-# Description = ''
+Description = 'A winget PoSH wrapper to help get and update software'
 
 # Minimum version of the PowerShell engine required by this module
 # PowerShellVersion = ''
