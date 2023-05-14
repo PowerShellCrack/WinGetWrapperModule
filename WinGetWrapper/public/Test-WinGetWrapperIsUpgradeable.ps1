@@ -17,7 +17,6 @@ function Test-WinGetWrapperIsUpgradeable {
         ConvertFrom-FixedColumnTable
         Test-VSCode
         Test-IsISE
-        Test-IsWinGetInstalled
         Get-WinGetWrapperUpgradeableList
     #>
     [CmdletBinding()]
@@ -30,7 +29,6 @@ function Test-WinGetWrapperIsUpgradeable {
         If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
             [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
         }
-        If(-Not(Test-IsWinGetInstalled)){Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe -ErrorAction Stop}
 
         #grab list of upgradable apps
         $List = Get-WinGetWrapperUpgradeableList

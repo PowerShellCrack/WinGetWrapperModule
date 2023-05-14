@@ -12,7 +12,6 @@ function Get-WinGetWrapperUpgradeableList {
         ConvertFrom-FixedColumnTable
         Test-VSCode
         Test-IsISE
-        Test-IsWinGetInstalled
     #>
     [CmdletBinding()]
     param(
@@ -21,7 +20,6 @@ function Get-WinGetWrapperUpgradeableList {
     If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
         [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
     }
-    If(-Not(Test-IsWinGetInstalled)){Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe -ErrorAction Stop}
 
     # filter out progress-display and header-separator lines
     $List = (winget upgrade --accept-source-agreements) -match '^\p{L}' | ConvertFrom-FixedColumnTable

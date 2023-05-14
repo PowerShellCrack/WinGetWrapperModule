@@ -14,3 +14,5 @@ foreach ($file in $fileList  ) {
 }
 
 $Global:LogFilePath = ($env:LocalAppData + '\PowerShellCrack\Winget\WingetWrapper_' +  (Get-Date).ToString('yyyy-MM-dd_Thh-mm-ss-tt') + '.log')
+
+If(-Not(Test-IsWinGetInstalled)){Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe}

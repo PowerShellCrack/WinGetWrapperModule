@@ -3,7 +3,7 @@ A winget PoSH wrapper without using colbalt or third party
 
 ## Prerequisites
 
-Winget. The module will check to see if it has been setup. If nt it will attempt to set it up using hte command
+Winget. The module will check to see if it has been setup. If is is not, the module will attempt to set it up using the command
 
 ```powershell
 Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe

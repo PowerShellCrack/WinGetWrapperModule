@@ -1,5 +1,8 @@
 # Change log for WinGetWrapper module
 
+## 1.0.2 May 13, 2023
+- Moved wingetcheck to psm1 file; ensure winget is ready when module is installed
+
 ## 1.0.1 May 13, 2023
 
 - Added Winget check; ensure winget hase been initialized; an issue for new machiens that no on has logged in yet
