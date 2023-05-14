@@ -100,7 +100,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = @('Winget','Package Manager','Microsoft Store','Appx')
+        Tags = @('Winget', 'PackageManager', 'MicrosoftStore', 'Appx')
 
         # A URL to the license for this module.
         LicenseUri = 'https://raw.githubusercontent.com/PowerShellCrack/WinGetWrapperModule/main/LICENSE'
