@@ -524,4 +524,8 @@ function Test-WinGetWrapperIsUpgradeable {
 
 If(-Not(Test-IsWinGetInstalled)){Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe}
 
-Get-WinGetWrapperUpgradeableList | Start-WinGetWrapperAppUpdate
+$upgradeableApps = Get-WinGetWrapperUpgradeableList
+
+Foreach ($App.id in $upgradeableApps){
+    Start-WinGetWrapperAppUpdate -Id $App
+}

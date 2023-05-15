@@ -59,6 +59,9 @@ function Start-WinGetWrapperAppUpdate {
         # filter out progress-display and header-separator lines
         $List =  Get-WinGetWrapperUpgradeableList
 
+        #TEST $Item = $List | Where Available -ne '' | Select -first 1
+        Write-Verbose ("Found {0} apps that have available updates" -f $List.count)
+
         $wingetparam = @()
         
 
@@ -66,6 +69,7 @@ function Start-WinGetWrapperAppUpdate {
             $wingetparam += '--silent'
         }
 
+        #use a defualt paramters for winget upgrade
         $wingetparam += "--scope $($Scope.ToLower())"
         $wingetparam += "--disable-interactivity"
         $wingetparam += "--accept-source-agreements"
@@ -84,8 +88,6 @@ function Start-WinGetWrapperAppUpdate {
             default {$Items = $List | Where Available -ne '' | Select -First 1} # don't need to get full list...just one
         }
 
-        #TEST $Item = $List | Where Available -ne '' | Select -first 1
-        
         Foreach($Item in $Items){
             $obj = New-Object pscustomobject
             
@@ -123,6 +125,7 @@ function Start-WinGetWrapperAppUpdate {
             $obj | Add-Member -MemberType NoteProperty -Name ExitCode -Value $ExitCode -Force
             $obj | Add-Member -MemberType NoteProperty -Name Status -Value $Status -Force
             $UpgradeList += $obj
+            Write-Verbose ("Found {0} apps that have available updates" -f $List.count)
         }
 
     }
