@@ -24,6 +24,13 @@ Install-Module WinGetWrapper -Force
 - **Start-WinGetWrapperAppUpdate** : Attempt to update apps using Winget upgrade process
 
 
+## Scripts
+
+- **WinGetWrapperScript.ps1** :A simple script to install updates
+- **WinGetWrapperSingleScriptFile.ps1** :A script that contains all functions (no module import) for those that want that. 
+
+> WARNING!! The single script file not be a updated as the module. 
+
 ## Example #1
 
 ```powershell
