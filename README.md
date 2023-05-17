@@ -19,10 +19,10 @@ Install-Module WinGetWrapper -Force
 ## Cmdlets
 
 - **Get-WinGetWrapperList** :Gets list  of apps from winget
-- **Get-WinGetWrapperUpgradeableList** :  Gets list of apps upgradeble
+- **Get-WinGetWrapperUpgradeList** :  Gets list of apps upgradeble
 - **Test-WinGetWrapperIsUpgradeable** : Checks if Winget app has and available update
 - **Start-WinGetWrapperAppUpdate** : Attempt to update apps using Winget upgrade process
-
+- **Start-WinGetWrapperAllUpdates** : Attempt to update all apps using Winget upgrade process
 
 ## Scripts
 
@@ -78,7 +78,7 @@ Jabra.Direct                                          False
 ## Example #3
 
 ```powershell
-Get-WinGetWrapperUpgradeableList
+Get-WinGetWrapperUpgradeList
 ```
 ```text
 Name      : Microsoft Visual C++ 2015-2022 Redistributable (x86)

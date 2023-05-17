@@ -19,8 +19,9 @@ function ConvertFrom-FixedColumnTable {
         The input is assumed to have a header line whose column names to mark the start of each field
     #>
     [CmdletBinding()]
+    [OutputType([PSCustomObject])]
     param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)] $InputObject
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)] [String[]]$InputObject
     )
     
     Begin {
@@ -28,17 +29,36 @@ function ConvertFrom-FixedColumnTable {
         $LineIndex = 0
          # data line
         $List = @()
+        $lines = if ($InputObject.Contains("`n")) { $InputObject.TrimEnd("`r", "`n") -split '\r?\n' } else { $InputObject }
     }
     Process {
-        $lines = if ($InputObject.Contains("`n")) { $InputObject.TrimEnd("`r", "`n") -split '\r?\n' } else { $InputObject }
         Try{
             foreach ($line in $lines) {
                 ++$LineIndex
                 Write-Verbose ("LINE [{1}]: {0}" -f $line,$LineIndex)
-                if ($LineIndex -eq 1) { 
-                    # header line
-                    $headerLine = $line 
+                if($line -match 'Multiple installed packages found matching input criteria. Please refine the input.'){
+                    #reset back to 0
+                    $LineIndex = 0
                 }
+                elseif ($LineIndex -eq 1) { 
+                    # header line
+                    $headerLine = $line
+                    # separator line
+                    # Get the indices where the fields start.
+                    $fieldStartIndex = [regex]::Matches($headerLine, '\b\S').Index
+                    # Calculate the field lengths.
+                    $fieldLengths = foreach ($i in 1..($fieldStartIndex.Count-1)) { 
+                    $fieldStartIndex[$i] - $fieldStartIndex[$i - 1] - 1
+                    }
+                    # Get the column names
+                    $colNames = foreach ($i in 0..($fieldStartIndex.Count-1)) {
+                        if ($i -eq $fieldStartIndex.Count-1) {
+                            $headerLine.Substring($fieldStartIndex[$i]).Trim()
+                        } else {
+                            $headerLine.Substring($fieldStartIndex[$i], $fieldLengths[$i]).Trim()
+                        }
+                    } 
+                <#}
                 elseif ($LineIndex -eq 2 ) { 
                     
                     # separator line
@@ -55,9 +75,8 @@ function ConvertFrom-FixedColumnTable {
                         } else {
                             $headerLine.Substring($fieldStartIndex[$i], $fieldLengths[$i]).Trim()
                         }
-                    } 
-                }
-                else {
+                    } #>
+                }else {
                    
                     $i = 0
                     # ordered helper hashtable for object constructions.

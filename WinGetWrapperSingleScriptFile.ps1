@@ -131,7 +131,7 @@ function ConvertFrom-FixedColumnTable {
     #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)] $InputObject
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)] [String[]]$InputObject
     )
     
     Begin {
@@ -139,19 +139,20 @@ function ConvertFrom-FixedColumnTable {
         $LineIndex = 0
          # data line
         $List = @()
+        $lines = if ($InputObject.Contains("`n")) { $InputObject.TrimEnd("`r", "`n") -split '\r?\n' } else { $InputObject }
     }
     Process {
-        $lines = if ($InputObject.Contains("`n")) { $InputObject.TrimEnd("`r", "`n") -split '\r?\n' } else { $InputObject }
         Try{
             foreach ($line in $lines) {
                 ++$LineIndex
                 Write-Verbose ("LINE [{1}]: {0}" -f $line,$LineIndex)
-                if ($LineIndex -eq 1) { 
-                    # header line
-                    $headerLine = $line 
+                if($line -match 'Multiple installed packages found matching input criteria. Please refine the input.'){
+                    #reset back to 0
+                    $LineIndex = 0
                 }
-                elseif ($LineIndex -eq 2 ) { 
-                    
+                elseif ($LineIndex -eq 1) { 
+                    # header line
+                    $headerLine = $line
                     # separator line
                     # Get the indices where the fields start.
                     $fieldStartIndex = [regex]::Matches($headerLine, '\b\S').Index
@@ -167,8 +168,7 @@ function ConvertFrom-FixedColumnTable {
                             $headerLine.Substring($fieldStartIndex[$i], $fieldLengths[$i]).Trim()
                         }
                     } 
-                }
-                else {
+                }else {
                    
                     $i = 0
                     # ordered helper hashtable for object constructions.
@@ -215,6 +215,7 @@ function Get-WinGetWrapperList {
         ConvertFrom-FixedColumnTable
         Test-VSCode
         Test-IsISE
+        Get-WinGetOutput
     #>
     [CmdletBinding()]
     param(
@@ -227,87 +228,41 @@ function Get-WinGetWrapperList {
     
 
     Write-Verbose ("Populating list of winget items on system")
+    #run winget list and output to file
+    $Null = (Start-Process winget -ArgumentList 'list --accept-source-agreements' -PassThru -Wait -WindowStyle Hidden `
+        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
     # filter out progress-display and header-separator lines
-    $List = (winget list --accept-source-agreements) -match '^\p{L}' | ConvertFrom-FixedColumnTable
+    $List = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru) 
     $NewList = @()
 
-    #TEST $Item = $List | Where {$_.Name.Length -gt 44} | Select -first 1
-    #TEST $Item = $List | Where {$_.Name.Length -gt 44} | Select -last 1
-    #TEST $Item = ($List | Where {$_.Name.Length -gt 44})[2]
+
     Foreach($Item in $List){
         #some items that output using winget have shortened names displayed in console window.
-        #need to expand this to grab full name
-        If(($Item.Name).Length -gt 44){
-            Write-Verbose ("Updating name for item: {0}" -f $Item.Name)
-            $ExpandedName = ((winget list --id $Item.Id --exact) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable).Name
-        }Else{
-            $ExpandedName = $Item.Name
+
+        #first attempt to expand id by using the name with a winget command that has less data output
+        If( ($Item.Id).Length -gt 44 ){
+            Write-Verbose ("Expanding app Id: {0}" -f $Item.Id)
+            $Null = (Start-Process winget -ArgumentList "list --name `"$($Item.Name)`"" -PassThru -Wait -WindowStyle Hidden `
+                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
+            $Expanded = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
+            #$Expanded = ((winget list --name $Item.Name) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)
+            $ExpandedMatch = $Expanded | Where Name -eq $Item.Name
+            $Item.Name = $Expanded.Name -replace '\P{IsBasicLatin}'.Trim()
+            $Item.Id = $Expanded.Id -replace '\P{IsBasicLatin}'.Trim()
         }
-
-        #Build newlist. If details need, collection that list
-        Write-Verbose ("Details can take some time...")
-        If($Details){
-            $NewList += ConvertFrom-LinesWithDelimiter -String (winget show --id $Item.Id --exact) `
-                                                    -AdditionalProperties @{
-                                                        Name = $ExpandedName
-                                                        Id = $Item.Id
-                                                        CurrentVersion = $Item.Version
-                                                        InstallSource = $Item.Source
-                                                    } | 
-                                                    Select -First 1
+        
+        #if id expanasion doesn't expand name as well, attempt that by using hte already expanded Id
+        If( ($Item.Name).Length -gt 44 ){
+            Write-Verbose ("Expanding app Name: {0}" -f $Item.Name)
+            $Null = (Start-Process winget -ArgumentList "list --id $($Item.Id)" -PassThru -Wait -WindowStyle Hidden `
+                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
+            $Expanded =  ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
+            #$Expanded = ((winget list --id $Item.Id --exact) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)
+            $Item.Name = $Expanded.Name #-replace '-\P{IsBasicLatin}'.Trim()
         }Else{
-            $NewList += $Item
+            $Item.Name = $Item.Name -replace '\P{IsBasicLatin}'.Trim()
         }
-    }
-
-    #restore encoding settings
-    If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
-        [Console]::OutputEncoding =  $OriginalEncoding
-    }
-
-    Return $NewList
-    
-}
-
-function Get-WinGetWrapperUpgradeableList {
-    <#
-    .SYNOPSIS
-        Gets winget upgrade list
-
-    .EXAMPLE
-        Get-WinGetWrapperUpgradeableList
-
-        This example retrieves all software identified by winget
-
-    .LINK
-        ConvertFrom-FixedColumnTable
-        Test-VSCode
-        Test-IsISE
-    #>
-    [CmdletBinding()]
-    param(
-    )
-    $OriginalEncoding = [Console]::OutputEncoding
-    If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
-        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-    }
-
-    # filter out progress-display and header-separator lines
-    $List = (winget upgrade --accept-source-agreements) -match '^\p{L}' | ConvertFrom-FixedColumnTable
-    $NewList = @()
-
-    #TEST $Item = $List | Where {$_.Name.Length -gt 44} | Select -first 1
-    #TEST $Item = $List | Where {$_.Name.Length -gt 44} | Select -last 1
-    #TEST $Item = ($List | Where {$_.Name.Length -gt 44})[2]
-    Foreach($Item in $List){
-        #some items that output using winget have shortened names displayed in console window.
-        #need to expand this to grab full name
-        If(($Item.Name).Length -gt 44){
-            Write-Verbose ("Updating name for item: {0}" -f $Item.Name)
-            $ExpandedName = ((winget list --id $Item.Id --exact) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable).Name
-        }Else{
-            $ExpandedName = $Item.Name
-        }
+        #collect item to list
         $NewList += $Item
     }
 
@@ -320,6 +275,82 @@ function Get-WinGetWrapperUpgradeableList {
     
 }
 
+function Get-WinGetWrapperUpgradeList {
+    <#
+    .SYNOPSIS
+        Gets winget upgrade list
+
+    .EXAMPLE
+        Get-WinGetWrapperUpgradeList
+
+        This example retrieves all software identified by winget
+
+    .LINK
+        ConvertFrom-FixedColumnTable
+        Test-VSCode
+        Test-IsISE
+        Get-WinGetVersion
+        Get-WinGetOutput
+    #>
+    [CmdletBinding()]
+    param()
+    $OriginalEncoding = [Console]::OutputEncoding
+    If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
+        [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+    }
+
+    If((Get-WinGetVersion) -lt [Version]'1.5.1081'){
+        #first accept agreement
+        $Null = (winget list --accept-source-agreements)
+        $upgradeArgs = 'upgrade'
+    }Else{
+        $upgradeArgs = 'upgrade --accept-source-agreements'
+    }
+    
+    # filter out progress-display and header-separator lines
+    $Null = (Start-Process winget -ArgumentList $upgradeArgs -PassThru -Wait -WindowStyle Hidden `
+                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
+    $List = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru) 
+    $NewList = @()
+
+    Foreach($Item in $List){
+        #some items that output using winget have shortened names and id displayed in console window due to unicode output.
+        
+        #first attempt to expand id by using the name with a winget command that has less data output
+        If( ($Item.Id).Length -gt 44 ){
+            Write-Verbose ("Expanding app Id: {0}" -f $Item.Id)
+            $Null = (Start-Process winget -ArgumentList "list --name `"$($Item.Name)`"" -PassThru -Wait -WindowStyle Hidden `
+                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
+            $Expanded = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
+            #$Expanded = ((winget list --name $Item.Name) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)
+            $ExpandedMatch = $Expanded | Where Name -eq $Item.Name
+            $Item.Name = $Expanded.Name -replace '\P{IsBasicLatin}'.Trim()
+            $Item.Id = $Expanded.Id -replace '\P{IsBasicLatin}'.Trim()
+        }
+        
+        #if id expanasion doesn't expand name as well, attempt that by using hte already expanded Id
+        If( ($Item.Name).Length -gt 44 ){
+            Write-Verbose ("Expanding app Name: {0}" -f $Item.Name)
+            $Null = (Start-Process winget -ArgumentList "list --id $($Item.Id)" -PassThru -Wait -WindowStyle Hidden `
+                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
+            $Expanded =  ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
+            #$Expanded = ((winget list --id $Item.Id --exact) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)
+            $Item.Name = $Expanded.Name #-replace '-\P{IsBasicLatin}'.Trim()
+        }Else{
+            $Item.Name = $Item.Name -replace '\P{IsBasicLatin}'.Trim()
+        }
+        #collect item to list
+        $NewList += $Item -replace '\P{IsBasicLatin}'.Trim()
+    }
+
+    #restore encoding settings
+    If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
+        [Console]::OutputEncoding =  $OriginalEncoding
+    }
+
+    Return $NewList
+    
+}
 
 
 function Start-WinGetWrapperAppUpdate {
@@ -333,9 +364,6 @@ function Start-WinGetWrapperAppUpdate {
     .PARAMETER Name
         Target a software to update by name. Thic can be quirky as some names are long and get cut off in output
 
-    .PARAMETER All
-        Default to this if ID or Name not specficied. WIll attempt to update any software winget has an update for
-
     .PARAMETER Silent
         Preforms installation using silent switch
 
@@ -347,7 +375,7 @@ function Start-WinGetWrapperAppUpdate {
 
         This example retrieves all software that has an available update sand installs it
     .EXAMPLE
-        Get-WinGetWrapperUpgradeableList | Select -First 1  | Start-WinGetWrapperAppUpdate
+        Get-WinGetWrapperUpgradeList | Select -First 1  | Start-WinGetWrapperAppUpdate
 
         This example retrieves the first software that has an available update and updates it
     .LINK
@@ -355,18 +383,16 @@ function Start-WinGetWrapperAppUpdate {
         Get-WinGetWapperList
         Test-VSCode
         Test-IsISE
-        Get-WinGetWrapperUpgradeableList
+        Get-WinGetWrapperUpgradeList
+        Get-WinGetOutput
     #>
-    [CmdletBinding(DefaultParameterSetName='All')]
+    [CmdletBinding(DefaultParameterSetName='Id')]
     param(
         [Parameter(Mandatory=$False,ValueFromPipeline=$true,ValueFromPipelineByPropertyName=$true,ParameterSetName='Id')]
         [String[]]$Id,
 
         [Parameter(Mandatory=$False,ParameterSetName='Name')]
         [String]$Name,
-
-        [Parameter(Mandatory=$False,ParameterSetName='All')]
-        [switch]$All,
 
         [Boolean]$Silent=$true,
 
@@ -380,7 +406,10 @@ function Start-WinGetWrapperAppUpdate {
         }
 
         # filter out progress-display and header-separator lines
-        $List =  Get-WinGetWrapperUpgradeableList
+        $List = Get-WinGetWrapperUpgradeList
+
+        #TEST $Item = $List | Where Available -ne '' | Select -first 1
+        Write-Verbose ("Found {0} apps that have available updates" -f $List.count)
 
         $wingetparam = @()
         
@@ -389,6 +418,7 @@ function Start-WinGetWrapperAppUpdate {
             $wingetparam += '--silent'
         }
 
+        #use a defualt paramters for winget upgrade
         $wingetparam += "--scope $($Scope.ToLower())"
         $wingetparam += "--disable-interactivity"
         $wingetparam += "--accept-source-agreements"
@@ -400,53 +430,57 @@ function Start-WinGetWrapperAppUpdate {
     Process{
         [string]$wingetargs = $wingetparam -join " "
 
-        switch($PSBoundParameters.ParameterSetName){
-            'Name'  { $Items = $List | Where {$_.Name -eq $Name -and $_.Available -ne ''} }
-            'Id'    { $Items = $List | Where {$_.Id -eq $Id -and $_.Available -ne ''} }
-            'All'   {$Items = $List | Where Available -ne '' | Select -First 1} # don't need to get full list...just one
-            default {$Items = $List | Where Available -ne '' | Select -First 1} # don't need to get full list...just one
+        switch($PSCmdlet.ParameterSetName){
+            'Name'  { $Items = $List | Where {$_.Name -eq $Name -and $_.Available -ne ''}; $SecondTryUsing = "id"}
+            'Id'    { $Items = $List | Where {$_.Id -eq $Id -and $_.Available -ne ''}; $SecondTryUsing = "name" }
         }
 
-        #TEST $Item = $List | Where Available -ne '' | Select -first 1
-        
         Foreach($Item in $Items){
+            
             $obj = New-Object pscustomobject
-            
-            
-            switch($PSBoundParameters.ParameterSetName){
+            $obj | Add-Member -MemberType NoteProperty -Name Name -Value $Item.Name -Force
+            $obj | Add-Member -MemberType NoteProperty -Name Id -Value $Item.Id -Force
+            Write-Verbose ("Attempting to update app {0}: {1}" -f $PSCmdlet.ParameterSetName, $Item.($PSCmdlet.ParameterSetName))
+            switch($PSCmdlet.ParameterSetName){
                 'Name'  {
-                    $obj | Add-Member -MemberType NoteProperty -Name Name -Value $Item.Name -Force
-                    $obj | Add-Member -MemberType NoteProperty -Name Id -Value $Item.Id -Force
-                    Write-Verbose ("RUNNING: winget upgrade --name {0} {1}" -f $Item.Name,$wingetargs)
-                    $result = Start-Process winget -ArgumentList "upgrade --name $($Item.Name) $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+                    Write-Verbose ("RUNNING: winget upgrade --name '{0}' {1}" -f $Item.Name,$wingetargs)
+                    $result = Start-Process winget -ArgumentList "upgrade --name `"$($Item.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
                                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
                 }
                 'Id'    {
-                    $obj | Add-Member -MemberType NoteProperty -Name Name -Value $Item.Name -Force
-                    $obj | Add-Member -MemberType NoteProperty -Name Id -Value $Item.Id -Force
                     Write-Verbose ("RUNNING: winget upgrade --id {0} {1}" -f $Item.Id,$wingetargs)
                     $result = Start-Process winget -ArgumentList "upgrade --id $($Item.Id) $wingetargs" -PassThru -Wait -WindowStyle Hidden `
                                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
                 }
-                'All'   {
-                    $obj | Add-Member -MemberType NoteProperty -Name AppsUpdated -Value $List.count -Force
-                    Write-Verbose ("RUNNING: winget upgrade --all {0}" -f $wingetargs)
-                    $result = Start-Process winget -ArgumentList "upgrade --all $wingetargs" -PassThru -Wait -WindowStyle Hidden `
-                                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
-                }
-                default {
-                    Write-Verbose ("RUNNING: winget upgrade --all {0}" -f $wingetargs)
-                    $result = Start-Process winget -ArgumentList "upgrade --all $wingetargs" -PassThru -Wait -WindowStyle Hidden `
-                                        -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
-                }
             }
+            $AppOutput = Get-WinGetOutput
+            If($AppOutput.Failed){
+                Write-Verbose ("Winget failed to upgrade app {0}: {1}" -f $Item.($PSCmdlet.ParameterSetName),$AppOutput.FailedCode)
+            }ElseIf($AppOutput.UpgradeNotFound){
+                Write-Verbose ("Winget could not find upgrade for app {0}" -f $Item.($PSCmdlet.ParameterSetName))
+            }Else{
+                Write-Verbose ("Winget app {0} last status is: {1}" -f $Item.($PSCmdlet.ParameterSetName),$AppOutput.LastStatus)
+            }
+            
+            If($AppOutput.AttemptRetry){
+                
+                Write-Verbose ("Attempting again to update app by {0}: {1}" -f $SecondTryUsing,$Item.Name)
+                Write-Verbose ("RUNNING: winget upgrade --$SecondTryUsing '{0}' {1}" -f $Item.Name,$wingetargs)
+                $result = Start-Process winget -ArgumentList "upgrade --$SecondTryUsing `"$($Item.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+                                    -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
+                $AppOutput = Get-WinGetOutput
+                $obj | Add-Member -MemberType NoteProperty -Name ExitCode -Value $result.ExitCode -Force
+                $obj | Add-Member -MemberType NoteProperty -Name Status -Value $AppOutput.LastStatus -Force
+                $UpgradeList += $obj
 
-            $ExitCode = $result.ExitCode
-            $Status = ((Get-Content $env:temp\winget.stdout) -split '`n'| Select -last 3) -join '.'
-            $obj | Add-Member -MemberType NoteProperty -Name ExitCode -Value $ExitCode -Force
-            $obj | Add-Member -MemberType NoteProperty -Name Status -Value $Status -Force
-            $UpgradeList += $obj
+            }Else{
+                $obj | Add-Member -MemberType NoteProperty -Name ExitCode -Value $result.ExitCode -Force
+                $obj | Add-Member -MemberType NoteProperty -Name Status -Value $AppOutput.LastStatus -Force
+                $UpgradeList += $obj
+            }
         }
+            
+
 
     }
     End{
@@ -458,74 +492,15 @@ function Start-WinGetWrapperAppUpdate {
     }
 }
 
-
-
-
-function Test-WinGetWrapperIsUpgradeable {
-    <#
-    .SYNOPSIS
-        Checks if Winget app has available upddate
-
-    .PARAMETER Details
-        Checks if Winget app has available upddate and returns 
-
-    .EXAMPLE
-       Get-WinGetWrapperList | Test-WinGetWrapperIsUpgradeable
-
-       This example retrieves all apps that has an available update
-
-    .LINK
-        ConvertFrom-FixedColumnTable
-        Test-VSCode
-        Test-IsISE
-        Get-WinGetWrapperUpgradeableList
-    #>
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)] 
-        [string[]] $Id
-    )
-    Begin{
-        $OriginalEncoding = [Console]::OutputEncoding
-        If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
-            [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-        }
-
-        #grab list of upgradable apps
-        $List = Get-WinGetWrapperUpgradeableList
-
-        $Upgradable = @()
-    }
-    Process{
-
-        Foreach($Item in $Id){
-            $obj = New-Object pscustomobject
-            $obj | Add-Member -MemberType NoteProperty -Name Id -Value $Item -Force
-            If($List | Where {$_.Available -ne '' -and $_.Id -eq $Item}){
-                $obj | Add-Member -MemberType NoteProperty -Name IsUpgradeable -Value $True -Force
-            }Else{
-                $obj | Add-Member -MemberType NoteProperty -Name IsUpgradeable -Value $False -Force
-            }
-            
-            # filter out first two lines lines
-            $Upgradable += $obj
-        }
-        
-    }
-    End{
-        #restore encoding settings
-        If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
-            [Console]::OutputEncoding =  $OriginalEncoding
-        }
-
-        Return $Upgradable
-    }
-}
+#====================================
+# MAIN
+#====================================
 
 If(-Not(Test-IsWinGetInstalled)){Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe}
 
-$upgradeableApps = Get-WinGetWrapperUpgradeableList
+$upgradeableApps = Get-WinGetWrapperUpgradeList
 
-Foreach ($App.id in $upgradeableApps){
-    Start-WinGetWrapperAppUpdate -Id $App
+Foreach ($App in $upgradeableApps){
+    Start-WinGetWrapperAppUpdate -Id $App.id
 }
+

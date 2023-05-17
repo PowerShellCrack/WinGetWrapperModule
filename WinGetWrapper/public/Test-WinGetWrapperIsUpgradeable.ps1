@@ -17,7 +17,7 @@ function Test-WinGetWrapperIsUpgradeable {
         ConvertFrom-FixedColumnTable
         Test-VSCode
         Test-IsISE
-        Get-WinGetWrapperUpgradeableList
+        Get-WinGetWrapperUpgradeList
     #>
     [CmdletBinding()]
     param(
@@ -31,7 +31,7 @@ function Test-WinGetWrapperIsUpgradeable {
         }
 
         #grab list of upgradable apps
-        $List = Get-WinGetWrapperUpgradeableList
+        $List = Get-WinGetWrapperUpgradeList
 
         $Upgradable = @()
     }
