@@ -1,2 +1,5 @@
-Publish-MSFTLinkDownloader.ps1
+Publish-WingetWrapperModule.ps1
+!/Tests/
+/Tests/*
 *.test.ps1
+.vscode

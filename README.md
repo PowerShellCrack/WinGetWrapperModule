@@ -1,6 +1,21 @@
 # WinGetWrapperModule
 A winget PoSH wrapper without using colbalt or third party
 
+## DISCLAIMER
+
+ - FIRST: have you used [Microsoft.Winget.Client](https://www.powershellgallery.com/packages/Microsoft.WinGet.Client). This is the offical one. 
+ - SECOND: This module is a CONCEPT idea I had to see if it would work. 
+
+This Sample Code is provided for the purpose of illustration only and is not intended to be used in a production environment.  **THIS SAMPLE CODE AND ANY
+RELATED INFORMATION ARE PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE**.  We grant You a nonexclusive, royalty-free right to use and modify the Sample Code and to
+reproduce and distribute the object code form of the Sample Code, provided that You agree: (i) to not use Our name, logo, or trademarks to market Your
+software product in which the Sample Code is embedded; (ii) to include a valid copyright notice on Your software product in which the Sample Code is embedded;
+and (iii) to indemnify, hold harmless, and defend Us and Our suppliers from and against any claims or lawsuits, including attorneys’ fees, that arise or result
+from the use or distribution of the Sample Code.
+
+This posting is provided "AS IS" with no warranties, and confers no rights. 
+
 ## Prerequisites
 
 Winget. The module will check to see if it has been setup. If is is not, the module will attempt to set it up using the command
