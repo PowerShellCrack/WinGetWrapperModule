@@ -44,15 +44,29 @@ jobs:
 
       - name: Run Pester
         shell: pwsh
+        working-directory: ${{ github.workspace }}
         run: |
           Import-Module Pester -MinimumVersion 5.5.0 -Force
+
+          $testFiles = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -Filter '*.Tests.ps1' -File
+          Write-Host "Working directory: $(Get-Location)"
+          Write-Host "Found $($testFiles.Count) test file(s):"
+          $testFiles.FullName | ForEach-Object { Write-Host "  $_" }
+
+          if (-not $testFiles) {
+              Write-Host "::group::Repository tree"
+              Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse -File | Select-Object -ExpandProperty FullName | Write-Host
+              Write-Host "::endgroup::"
+              throw "No *.Tests.ps1 files were found under $env:GITHUB_WORKSPACE"
+          }
+
           $config = New-PesterConfiguration
-          $config.Run.Path = './Tests'
+          $config.Run.Path = $testFiles.FullName
           $config.Run.Exit = $true
           $config.Output.Verbosity = 'Detailed'
           $config.TestResult.Enabled = $true
           $config.TestResult.OutputFormat = 'NUnitXml'
-          $config.TestResult.OutputPath = 'testResults.xml'
+          $config.TestResult.OutputPath = Join-Path $env:GITHUB_WORKSPACE 'testResults.xml'
           Invoke-Pester -Configuration $config
 
       - name: Upload test results
