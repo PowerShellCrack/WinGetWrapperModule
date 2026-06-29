@@ -1,5 +1,4 @@
 Publish-WingetWrapperModule.ps1
-!/Tests/
-/Tests/*
 *.test.ps1
+testResults.xml
 .vscode
