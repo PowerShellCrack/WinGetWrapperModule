@@ -24,16 +24,22 @@ function Get-WinGetWrapperUpgradeList {
         [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
     }
 
+    $WinGet = Resolve-WinGetPath
+    If(-Not($WinGet)){
+        Write-Error "winget is not installed or could not be resolved on this system."
+        Return
+    }
+
     If((Get-WinGetVersion) -lt [Version]'1.5.1081'){
         #first accept agreement
-        $Null = (winget list --accept-source-agreements)
+        $Null = (& $WinGet list --accept-source-agreements)
         $upgradeArgs = 'upgrade'
     }Else{
         $upgradeArgs = 'upgrade --accept-source-agreements'
     }
     
     # filter out progress-display and header-separator lines
-    $Null = (Start-Process winget -ArgumentList $upgradeArgs -PassThru -Wait -WindowStyle Hidden `
+    $Null = (Start-Process $WinGet -ArgumentList $upgradeArgs -PassThru -Wait -WindowStyle Hidden `
                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
     $List = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru) 
     $NewList = @()
@@ -44,7 +50,7 @@ function Get-WinGetWrapperUpgradeList {
         #first attempt to expand id by using the name with a winget command that has less data output
         If( ($Item.Id).Length -gt 44 ){
             Write-Verbose ("Expanding app Id: {0}" -f $Item.Id)
-            $Null = (Start-Process winget -ArgumentList "list --name `"$($Item.Name)`"" -PassThru -Wait -WindowStyle Hidden `
+            $Null = (Start-Process $WinGet -ArgumentList "list --name `"$($Item.Name)`"" -PassThru -Wait -WindowStyle Hidden `
                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
             $Expanded = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
             #$Expanded = ((winget list --name $Item.Name) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)
@@ -56,7 +62,7 @@ function Get-WinGetWrapperUpgradeList {
         #if id expanasion doesn't expand name as well, attempt that by using hte already expanded Id
         If( ($Item.Name).Length -gt 44 ){
             Write-Verbose ("Expanding app Name: {0}" -f $Item.Name)
-            $Null = (Start-Process winget -ArgumentList "list --id $($Item.Id)" -PassThru -Wait -WindowStyle Hidden `
+            $Null = (Start-Process $WinGet -ArgumentList "list --id $($Item.Id)" -PassThru -Wait -WindowStyle Hidden `
                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
             $Expanded =  ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
             #$Expanded = ((winget list --id $Item.Id --exact) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)

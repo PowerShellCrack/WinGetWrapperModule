@@ -36,6 +36,12 @@ function Start-WinGetWrapperAllUpdates {
             [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
         }
 
+        $WinGet = Resolve-WinGetPath
+        If(-Not($WinGet)){
+            Write-Error "winget is not installed or could not be resolved on this system."
+            Return
+        }
+
         # filter out progress-display and header-separator lines
         $List = Get-WinGetWrapperUpgradeList
 
@@ -70,7 +76,7 @@ function Start-WinGetWrapperAllUpdates {
         $obj = New-Object pscustomobject
         $obj | Add-Member -MemberType NoteProperty -Name Apps -Value $List.count -Force
         Write-Verbose ("RUNNING: winget upgrade --all {0}" -f $wingetargs)
-        $result = Start-Process winget -ArgumentList "upgrade --all $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+        $result = Start-Process $WinGet -ArgumentList "upgrade --all $wingetargs" -PassThru -Wait -WindowStyle Hidden `
             -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
         
         $AppOutput = Get-WinGetOutput
@@ -91,7 +97,7 @@ function Start-WinGetWrapperAllUpdates {
                 If($AppItem){
                     Write-Verbose ("[{0}/{1}] Attempting again to update app name: {2}" -f ($AppNum+1),$List.count,$Item.Name)
                     Write-Verbose ("RUNNING: winget upgrade --name '{0}' {1}" -f $AppItem.Name,$wingetargs)
-                    $result = Start-Process winget -ArgumentList "upgrade --name `"$($AppItem.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+                    $result = Start-Process $WinGet -ArgumentList "upgrade --name `"$($AppItem.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
                                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
                     $AppOutput = Get-WinGetOutput
                     $obj | Add-Member -MemberType NoteProperty -Name ExitCode -Value $result.ExitCode -Force

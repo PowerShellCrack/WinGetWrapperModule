@@ -51,6 +51,12 @@ function Start-WinGetWrapperAppUpdate {
             [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
         }
 
+        $WinGet = Resolve-WinGetPath
+        If(-Not($WinGet)){
+            Write-Error "winget is not installed or could not be resolved on this system."
+            Return
+        }
+
         # filter out progress-display and header-separator lines
         $List = Get-WinGetWrapperUpgradeList
 
@@ -90,12 +96,12 @@ function Start-WinGetWrapperAppUpdate {
             switch($PSCmdlet.ParameterSetName){
                 'Name'  {
                     Write-Verbose ("RUNNING: winget upgrade --name '{0}' {1}" -f $Item.Name,$wingetargs)
-                    $result = Start-Process winget -ArgumentList "upgrade --name `"$($Item.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+                    $result = Start-Process $WinGet -ArgumentList "upgrade --name `"$($Item.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
                                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
                 }
                 'Id'    {
                     Write-Verbose ("RUNNING: winget upgrade --id {0} {1}" -f $Item.Id,$wingetargs)
-                    $result = Start-Process winget -ArgumentList "upgrade --id $($Item.Id) $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+                    $result = Start-Process $WinGet -ArgumentList "upgrade --id $($Item.Id) $wingetargs" -PassThru -Wait -WindowStyle Hidden `
                                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
                 }
             }
@@ -112,7 +118,7 @@ function Start-WinGetWrapperAppUpdate {
                 
                 Write-Verbose ("Attempting again to update app by {0}: {1}" -f $SecondTryUsing,$Item.Name)
                 Write-Verbose ("RUNNING: winget upgrade --$SecondTryUsing '{0}' {1}" -f $Item.Name,$wingetargs)
-                $result = Start-Process winget -ArgumentList "upgrade --$SecondTryUsing `"$($Item.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
+                $result = Start-Process $WinGet -ArgumentList "upgrade --$SecondTryUsing `"$($Item.Name)`" $wingetargs" -PassThru -Wait -WindowStyle Hidden `
                                     -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout
                 $AppOutput = Get-WinGetOutput
                 $obj | Add-Member -MemberType NoteProperty -Name ExitCode -Value $result.ExitCode -Force

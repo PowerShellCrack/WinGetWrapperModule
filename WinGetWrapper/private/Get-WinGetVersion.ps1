@@ -9,7 +9,7 @@ Function Get-WinGetVersion {
     .EXAMPLE
     Get-WinGetVersion
     #>
-    $Version = (winget --version)
+    $Version = (& (Resolve-WinGetPath) --version)
     If($Literal){
         return [string]($Version -replace '^v')
     }Else{

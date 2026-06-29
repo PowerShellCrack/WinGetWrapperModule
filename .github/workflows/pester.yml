@@ -1,0 +1,63 @@
+name: Pester Tests
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'WinGetWrapper/**'
+      - 'Tests/**'
+      - 'WinGetWrapperSingleScriptFile.ps1'
+      - '.github/workflows/pester.yml'
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Pester tests
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: |
+          Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+          Install-Module -Name Pester -MinimumVersion 5.5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem -Path . -Recurse -Filter *.ps1 -File
+          $hasErrors = $false
+          foreach ($f in $files) {
+              $errs = $null
+              [void][System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]([System.Management.Automation.Language.ParseError[]]$errs))
+              if ($errs) {
+                  $hasErrors = $true
+                  Write-Host "::error file=$($f.FullName)::$($errs[0].Message)"
+              }
+          }
+          if ($hasErrors) { exit 1 }
+
+      - name: Run Pester
+        shell: pwsh
+        run: |
+          Import-Module Pester -MinimumVersion 5.5.0 -Force
+          $config = New-PesterConfiguration
+          $config.Run.Path = './Tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.TestResult.OutputPath = 'testResults.xml'
+          Invoke-Pester -Configuration $config
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pester-results
+          path: testResults.xml

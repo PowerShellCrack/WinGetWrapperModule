@@ -1,6 +1,8 @@
 # WinGetWrapperModule
 A winget PoSH wrapper without using colbalt or third party
 
+[![Pester Tests](https://github.com/PowerShellCrack/WinGetWrapperModule/actions/workflows/pester.yml/badge.svg)](https://github.com/PowerShellCrack/WinGetWrapperModule/actions/workflows/pester.yml)
+
 ## DISCLAIMER
 
  - FIRST: have you used [Microsoft.Winget.Client](https://www.powershellgallery.com/packages/Microsoft.WinGet.Client). This is the offical one. 
@@ -44,7 +46,22 @@ Install-Module WinGetWrapper -Force
 - **WinGetWrapperScript.ps1** :A simple script to install updates
 - **WinGetWrapperSingleScriptFile.ps1** :A script that contains all functions (no module import) for those that want that. 
 
-> WARNING!! The single script file not be a updated as the module. 
+> NOTE: `WinGetWrapperSingleScriptFile.ps1` is generated from the module source by `Tests\Build-SingleScriptFile.ps1`, so it stays in sync with the module. Run that script after changing any module function. It is handy for SYSTEM-context scenarios (e.g. Autopilot/ESP) where importing a module is not possible.
+
+## Autopilot / ESP (SYSTEM context)
+
+During an Autopilot/ESP deployment the script runs as SYSTEM, where the `winget` App Execution Alias is not on the PATH even though winget is installed. The module resolves the real `winget.exe` directly from `%ProgramFiles%\WindowsApps` (via the private `Resolve-WinGetPath`), so all commands work in that context without relying on the alias.
+
+## Testing
+
+Tests are written for [Pester v5](https://pester.dev/) and live under `Tests\`. They mock winget so they can run on any Windows machine.
+
+```powershell
+Install-Module Pester -MinimumVersion 5.5.0 -Force -SkipPublisherCheck
+Invoke-Pester -Path .\Tests
+```
+
+The same tests run automatically on every push/PR via the [Pester Tests workflow](.github/workflows/pester.yml).
 
 ## Example #1
 

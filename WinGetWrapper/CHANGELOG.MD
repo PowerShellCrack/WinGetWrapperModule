@@ -1,5 +1,15 @@
 # Change log for WinGetWrapper module
 
+## 1.0.6 June 29, 2026
+
+- Added `Resolve-WinGetPath` to locate winget.exe under `%ProgramFiles%\WindowsApps` so the module works in SYSTEM context (Autopilot/ESP) where the winget alias is not on the PATH
+- Rewrote `Test-IsWinGetInstalled` to use the resolver instead of calling `winget` directly (more reliable detection)
+- All functions now invoke the resolved winget.exe path rather than the bare `winget` alias
+- `ConvertFrom-FixedColumnTable` now skips blank/separator lines and strips progress-spinner / control characters and truncation ellipsis per field for clean output
+- Module import no longer throws when winget cannot be registered (warns instead)
+- Converted Tests to Pester v5 and added a GitHub Actions workflow to run them
+- `WinGetWrapperSingleScriptFile.ps1` is now generated from module source via `Tests\Build-SingleScriptFile.ps1`
+
 ## 1.0.5 May 16, 2023
 
 - fixed issue where newly provisioned devices with winget output shows a message; skips message to grab apps

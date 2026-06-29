@@ -27,11 +27,16 @@ function Get-WinGetWrapperList {
     If(Test-VSCode -eq $false -and Test-IsISE -eq $false){
         [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
     }
-    
+
+    $WinGet = Resolve-WinGetPath
+    If(-Not($WinGet)){
+        Write-Error "winget is not installed or could not be resolved on this system."
+        Return
+    }
 
     Write-Verbose ("Populating list of winget items on system")
     #run winget list and output to file
-    $Null = (Start-Process winget -ArgumentList 'list --accept-source-agreements' -PassThru -Wait -WindowStyle Hidden `
+    $Null = (Start-Process $WinGet -ArgumentList 'list --accept-source-agreements' -PassThru -Wait -WindowStyle Hidden `
         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
     # filter out progress-display and header-separator lines
     $List = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru) 
@@ -43,7 +48,7 @@ function Get-WinGetWrapperList {
         #first attempt to expand id by using the name with a winget command that has less data output
         If( ($Item.Id).Length -gt 44 ){
             Write-Verbose ("Expanding app Id: {0}" -f $Item.Id)
-            $Null = (Start-Process winget -ArgumentList "list --name `"$($Item.Name)`"" -PassThru -Wait -WindowStyle Hidden `
+            $Null = (Start-Process $WinGet -ArgumentList "list --name `"$($Item.Name)`"" -PassThru -Wait -WindowStyle Hidden `
                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
             $Expanded = ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
             #$Expanded = ((winget list --name $Item.Name) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)
@@ -55,7 +60,7 @@ function Get-WinGetWrapperList {
         #if id expanasion doesn't expand name as well, attempt that by using hte already expanded Id
         If( ($Item.Name).Length -gt 44 ){
             Write-Verbose ("Expanding app Name: {0}" -f $Item.Name)
-            $Null = (Start-Process winget -ArgumentList "list --id $($Item.Id)" -PassThru -Wait -WindowStyle Hidden `
+            $Null = (Start-Process $WinGet -ArgumentList "list --id $($Item.Id)" -PassThru -Wait -WindowStyle Hidden `
                         -RedirectStandardError $env:temp\winget.errout -RedirectStandardOutput $env:temp\winget.stdout)
             $Expanded =  ConvertFrom-FixedColumnTable -InputObject (Get-WinGetOutput -Passthru)
             #$Expanded = ((winget list --id $Item.Id --exact) -split '`n'| Select -Last 3 | ConvertFrom-FixedColumnTable)

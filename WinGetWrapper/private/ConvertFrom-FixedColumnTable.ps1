@@ -33,7 +33,17 @@ function ConvertFrom-FixedColumnTable {
     }
     Process {
         Try{
-            foreach ($line in $lines) {
+            foreach ($rawLine in $lines) {
+                # NOTE: do not strip characters from the whole line here - the parser
+                # relies on fixed column offsets, so removing characters would shift
+                # every following column. Cleaning is done per-field after extraction.
+                $line = $rawLine
+
+                # Skip blank lines and the dashed header separator line.
+                if ([string]::IsNullOrWhiteSpace($line) -or $line -match '^\s*-{3,}\s*$') {
+                    continue
+                }
+
                 ++$LineIndex
                 Write-Verbose ("LINE [{1}]: {0}" -f $line,$LineIndex)
                 if($line -match 'Multiple installed packages found matching input criteria. Please refine the input.'){
@@ -83,7 +93,7 @@ function ConvertFrom-FixedColumnTable {
                     $ObjectHash = [ordered] @{} 
                     foreach ($colName in $colNames) {
                         Write-Verbose ("COLUMN: {0}" -f $colName)
-                        $ObjectHash[$colName] = 
+                        $value =
                             if ($fieldStartIndex[$i] -lt $line.Length) {
                                 if ($fieldLengths[$i] -and $fieldStartIndex[$i] + $fieldLengths[$i] -le $line.Length) {
                                     $line.Substring($fieldStartIndex[$i], $fieldLengths[$i]).Trim()
@@ -92,6 +102,13 @@ function ConvertFrom-FixedColumnTable {
                                     $line.Substring($fieldStartIndex[$i]).Trim()
                                 }
                             }
+                        # strip winget progress-spinner / block-drawing and control
+                        # characters plus any truncation ellipsis so every field is clean
+                        # (addresses ragged Get-WinGetWrapperList output).
+                        if ($null -ne $value) {
+                            $value = ($value -replace '[\u2500-\u259F\u2800-\u28FF]' -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]' -replace '\u2026').Trim()
+                        }
+                        $ObjectHash[$colName] = $value
                         ++$i
                     }
                     $List += [pscustomobject] $ObjectHash

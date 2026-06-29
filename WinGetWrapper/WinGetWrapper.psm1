@@ -15,4 +15,10 @@ foreach ($file in $fileList  ) {
 
 $Global:LogFilePath = ($env:LocalAppData + '\PowerShellCrack\Winget\WingetWrapper_' +  (Get-Date).ToString('yyyy-MM-dd_Thh-mm-ss-tt') + '.log')
 
-If(-Not(Test-IsWinGetInstalled)){Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe}
+If(-Not(Test-IsWinGetInstalled)){
+    Try{
+        Add-AppxPackage -RegisterByFamilyName -MainPackage Microsoft.DesktopAppInstaller_8wekyb3d8bbwe -ErrorAction Stop
+    }Catch{
+        Write-Warning ("winget is not available and could not be registered automatically: {0}" -f $_.Exception.Message)
+    }
+}
